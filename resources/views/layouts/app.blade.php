@@ -188,15 +188,15 @@
 
                 <li class="grey with-sub {{ Request::is('cita*') ? 'opened' : ''}}">
                     <span>
-                        <img src="{{asset('img-inicio/programar.png')}}" class="img-inicio" alt="">
+                        <img src="{{asset('img-inicio/nuevo-usuario.png')}}" class="img-inicio" alt="">
                         {{-- <i class="fas fa-sort-amount-up-alt"></i> --}}
-                        <span class="lbl">CITAS</span>
+                        <span class="lbl">REGISTROS</span>
                     </span>
                     <ul>
                         <li>
-                            <a href="" class="{{ Request::is('cita-create*') ? 'activo' : ''}}">
+                            <a href="{{route("productos.create")}}" class="{{ Request::is('productos*') ? 'activo' : ''}}">
                                 <i class="fas fa-plus-square icono-submenu"></i>
-                                <span class="lbl">Registrar cita</span>
+                                <span class="lbl">Registrar productos</span>
                             </a>
                         </li>
                         <li>

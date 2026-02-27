@@ -12,6 +12,7 @@ use App\Http\Controllers\MedicoController;
 use App\Http\Controllers\PacienteController;
 use App\Http\Controllers\RecuperarClaveController;
 use App\Http\Controllers\UsuarioController;
+use App\Http\Controllers\PruductoController;
 
 /*
 |--------------------------------------------------------------------------
@@ -63,5 +64,12 @@ Route::middleware(['verified'])->group(function () {
 
     Route::post('empresa-update-{id}', [EmpresaController::class, 'update'])
         ->name('empresa.update');
+        Route::post('actualizar-logo', [EmpresaController::class, "actualizarLogo"])
+        ->name("empresa.actualizarLogo")->middleware('verified');
+        Route::delete('eliminar-logo', [EmpresaController::class, "eliminarLogo"])->name("empresa.eliminarLogo")->middleware('verified');
+
+    // productos
+    Route::resource('productos', PruductoController::class)->middleware('verified');
+        
 
 });
