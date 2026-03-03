@@ -188,7 +188,7 @@
 
                 <li class="grey with-sub {{ Request::is('cita*') ? 'opened' : ''}}">
                     <span>
-                        <img src="{{asset('img-inicio/nuevo-usuario.png')}}" class="img-inicio" alt="">
+                        <img src="{{asset('img-inicio/boton-agregar.png')}}" class="img-inicio" alt="">
                         {{-- <i class="fas fa-sort-amount-up-alt"></i> --}}
                         <span class="lbl">REGISTROS</span>
                     </span>
@@ -200,9 +200,9 @@
                             </a>
                         </li>
                         <li>
-                            <a href="" class="{{ Request::is('cita-index*') ? 'activo' : ''}}">
+                            <a href="{{route("productos.index")}}" class="{{ Request::is('productos*') ? 'activo' : ''}}">
                                 <i class="fas fa-th-list icono-submenu"></i>
-                                <span class="lbl">Lista de citas</span>
+                                <span class="lbl">Lista de productos</span>
                             </a>
                         </li>
                     </ul>
