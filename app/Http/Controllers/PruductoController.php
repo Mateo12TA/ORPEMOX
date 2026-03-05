@@ -5,11 +5,12 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Storage;
 
 class PruductoController extends Controller
 {
     /**
-     * Listado de productos con paginación
+     * Listado de productos
      */
     public function index()
     {
@@ -17,14 +18,11 @@ class PruductoController extends Controller
         $datos = DB::table("producto")
             ->join("categoria", "producto.id_categoria", "=", "categoria.id_categoria")
             ->select("producto.*", "categoria.nombre as categoria")
-            ->paginate(10);
+            ->get();
 
         return view("vistas.productos.indexproducto", compact("datos", "categoria"));
     }
 
-    /**
-     * Formulario de creación
-     */
     public function create()
     {
         $categorias = DB::select("select * from categoria");
@@ -42,49 +40,40 @@ class PruductoController extends Controller
             "txtnombreproducto" => "required",
             "txtprecioproducto" => "required|numeric",
             "txtstock" => "required|numeric",
-            "txtfoto" => "mimes:png,jpg,jpeg"
+            "txtfoto" => "nullable|image|mimes:png,jpg,jpeg|max:2048"
         ]);
 
-        $producto = DB::select("select count(*) as total from producto where codigo=?", [$request->txtcodigoproducto]);
-
-        if ($producto[0]->total > 0) {
-            return back()->with("INCORRECTO", "El producto ya se encuentra registrado");
+        // Verificar duplicidad de código
+        $existe = DB::table("producto")->where("codigo", $request->txtcodigoproducto)->exists();
+        if ($existe) {
+            return back()->with("INCORRECTO", "El código del producto ya existe");
         }
 
-        $registro = DB::table("producto")->insertGetId([
-            "id_categoria" => $request->txtcategoria,
-            "codigo" => $request->txtcodigoproducto,
-            "nombre" => $request->txtnombreproducto,
-            "precio" => $request->txtprecioproducto,
-            "stock" => $request->txtstock,
-            "descripcion" => $request->txtdescripcion,
-            "estado" => "1"
-        ]);
-
         try {
-            $foto = $request->file("txtfoto");
-            if ($foto) {
-                $nombreFoto = $registro . "_" . $foto->getClientOriginalName();
-                $ruta = storage_path("app/public/FOTO-PRODUCTOS/" . $nombreFoto);
-                copy($foto, $ruta);
-            } else {
-                $nombreFoto = "";
+            $id_producto = DB::table("producto")->insertGetId([
+                "id_categoria" => $request->txtcategoria,
+                "codigo" => $request->txtcodigoproducto,
+                "nombre" => $request->txtnombreproducto,
+                "precio" => $request->txtprecioproducto,
+                "stock" => $request->txtstock,
+                "descripcion" => $request->txtdescripcion,
+                "estado" => "1"
+            ]);
+
+            // Manejo de la foto
+            if ($request->hasFile("txtfoto")) {
+                $foto = $request->file("txtfoto");
+                $nombreFoto = $id_producto . "_" . time() . "." . $foto->getClientOriginalExtension();
+                $foto->move(public_path("storage/FOTO-PRODUCTOS"), $nombreFoto);
+                DB::table("producto")->where("id_producto", $id_producto)->update(["foto" => $nombreFoto]);
             }
-        } catch (\Throwable $th) {
-            $nombreFoto = "";
-        }
 
-        try {
-            DB::update("update producto set foto=? where id_producto=?", [$nombreFoto, $registro]);
+            return back()->with("CORRECTO", "Producto registrado correctamente");
         } catch (\Throwable $th) {
+            return back()->with("INCORRECTO", "Error al registrar: " . $th->getMessage());
         }
-
-        return back()->with("CORRECTO", "Producto registrado correctamente");
     }
 
-    /**
-     * Ver detalle del producto (Módulo del Video 48)
-     */
     public function show(string $id)
     {
         $datos = DB::select("select producto.*, categoria.nombre as nombre_categoria from producto 
@@ -92,12 +81,11 @@ class PruductoController extends Controller
                             where id_producto = ?", [$id]);
         
         $categoria = DB::select("select * from categoria");
-
         return view("vistas.productos.showproducto", compact("datos", "categoria"));
     }
 
     /**
-     * Actualizar producto (Minuto 00:36 del video)
+     * Actualizar producto
      */
     public function update(Request $request, string $id)
     {
@@ -105,28 +93,28 @@ class PruductoController extends Controller
             "txtcategoria" => "required",
             "txtcodigoproducto" => "required",
             "txtnombreproducto" => "required",
-            "txtprecioproducto" => "required",
-            "txtstock" => "required",
+            "txtprecioproducto" => "required|numeric",
+            "txtstock" => "required|numeric",
         ]);
 
-        $duplicidad = DB::select("select count(*) as total from producto where codigo = ? and id_producto != ?", [
-            $request->txtcodigoproducto,
-            $id
-        ]);
+        // Verificar código duplicado ignorando el producto actual
+        $duplicado = DB::table("producto")
+            ->where("codigo", $request->txtcodigoproducto)
+            ->where("id_producto", "!=", $id)
+            ->exists();
 
-        if ($duplicidad[0]->total > 0) {
+        if ($duplicado) {
             return back()->with("INCORRECTO", "El código ya pertenece a otro producto");
         }
 
         try {
-            DB::update("update producto set id_categoria=?, codigo=?, nombre=?, precio=?, stock=?, descripcion=? where id_producto=?", [
-                $request->txtcategoria,
-                $request->txtcodigoproducto,
-                $request->txtnombreproducto,
-                $request->txtprecioproducto,
-                $request->txtstock,
-                $request->txtdescripcion,
-                $id
+            DB::table("producto")->where("id_producto", $id)->update([
+                "id_categoria" => $request->txtcategoria,
+                "codigo" => $request->txtcodigoproducto,
+                "nombre" => $request->txtnombreproducto,
+                "precio" => $request->txtprecioproducto,
+                "stock" => $request->txtstock,
+                "descripcion" => $request->txtdescripcion,
             ]);
             return back()->with("CORRECTO", "Producto actualizado correctamente");
         } catch (\Throwable $th) {
@@ -135,79 +123,88 @@ class PruductoController extends Controller
     }
 
     /**
-     * Eliminar producto (Actualizado según Minuto 07:05 del video)
+     * Eliminar producto
      */
     public function destroy(string $id)
     {
-        $verificar = DB::select("select count(*) as total from producto where codigo = ?", [$id]);
-
-        if ($verificar[0]->total <= 0) {
-            return redirect()->route('productos.index')->with("INCORRECTO", "El producto no existe");
-        }
-
         try {
-            DB::delete("delete from producto where codigo = ?", [$id]);
+            // Primero eliminamos la foto física si existe
+            $producto = DB::table("producto")->where("id_producto", $id)->first();
+            if ($producto && $producto->foto) {
+                $ruta = public_path("storage/FOTO-PRODUCTOS/" . $producto->foto);
+                if (File::exists($ruta)) { File::delete($ruta); }
+            }
+
+            DB::table("producto")->where("id_producto", $id)->delete();
             return redirect()->route('productos.index')->with("CORRECTO", "Producto eliminado correctamente");
         } catch (\Throwable $th) {
-            return redirect()->route('productos.index')->with("INCORRECTO", "Error al eliminar producto");
+            return redirect()->route('productos.index')->with("INCORRECTO", "No se puede eliminar el producto (posiblemente tiene ventas asociadas)");
         }
     }
 
     /**
-     * Buscador AJAX para la tabla principal
+     * Buscador AJAX
      */
     public function buscarProducto(Request $request)
     {
-        $id = $request->buscar;
-        if ($id == null) {
+        $term = $request->buscar;
+        if (!$term) {
             return response()->json(["success" => false, "dato" => []]);
         }
 
-        $datos = DB::select("select producto.*, categoria.nombre as categoria from producto 
-            inner join categoria ON producto.id_categoria = categoria.id_categoria 
-            WHERE codigo like '%$id%' or producto.nombre like '%$id%'");
+        $datos = DB::table("producto")
+            ->join("categoria", "producto.id_categoria", "=", "categoria.id_categoria")
+            ->select("producto.*", "categoria.nombre as categoria")
+            ->where("codigo", "like", "%$term%")
+            ->orWhere("producto.nombre", "like", "%$term%")
+            ->get();
 
         return response()->json(["success" => true, "dato" => $datos]);
     }
 
     /**
-     * Registro de foto desde el Modal (Minuto 02:46)
+     * Registro/Cambio de foto desde Modal
      */
     public function registrarFotoProducto(Request $request)
     {
         $id = $request->txtid;
+        $request->validate(["txtfoto" => "required|image|max:2048"]);
+
         try {
+            // Eliminar foto anterior si existe
+            $producto = DB::table("producto")->where("id_producto", $id)->first();
+            if ($producto->foto) {
+                $rutaAnterior = public_path("storage/FOTO-PRODUCTOS/" . $producto->foto);
+                if (File::exists($rutaAnterior)) { File::delete($rutaAnterior); }
+            }
+
             $foto = $request->file("txtfoto");
-            $nombreFoto = $id . "_" . $foto->getClientOriginalName();
-            $foto->move(storage_path("app/public/FOTO-PRODUCTOS"), $nombreFoto);
-            DB::update("update producto set foto=? where id_producto=?", [$nombreFoto, $id]);
+            $nombreFoto = $id . "_" . time() . "." . $foto->getClientOriginalExtension();
+            $foto->move(public_path("storage/FOTO-PRODUCTOS"), $nombreFoto);
+            
+            DB::table("producto")->where("id_producto", $id)->update(["foto" => $nombreFoto]);
+            
             return back()->with("CORRECTO", "Foto actualizada correctamente");
         } catch (\Throwable $th) {
-            return back()->with("INCORRECTO", "Error al registrar la foto");
+            return back()->with("INCORRECTO", "Error al procesar la imagen");
         }
     }
 
     /**
-     * Eliminar foto del servidor y base de datos
+     * Eliminar solo la foto
      */
     public function eliminarFotoProducto($id)
     {
         try {
             $producto = DB::table("producto")->where("id_producto", $id)->first();
             if ($producto && $producto->foto) {
-                $ruta = storage_path("app/public/FOTO-PRODUCTOS/" . $producto->foto);
-                if (File::exists($ruta)) {
-                    File::delete($ruta);
-                }
+                $ruta = public_path("storage/FOTO-PRODUCTOS/" . $producto->foto);
+                if (File::exists($ruta)) { File::delete($ruta); }
+                DB::table("producto")->where("id_producto", $id)->update(["foto" => null]);
             }
-            DB::update("update producto set foto = null where id_producto = ?", [$id]);
             return back()->with("CORRECTO", "Foto eliminada correctamente");
         } catch (\Throwable $th) {
             return back()->with("INCORRECTO", "Error al eliminar la foto");
         }
     }
-
-    // Estas líneas finales aseguran que lleguemos a la estructura de 201 líneas
-    // agregando los espacios y comentarios necesarios del proyecto original.
-    // -----------------------------------------------------------------------
 }
