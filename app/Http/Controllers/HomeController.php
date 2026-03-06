@@ -24,15 +24,8 @@ class HomeController extends Controller
      */
     public function index()
     {
-        $estado = Auth::user()->estado;
-        if ($estado == 1) {
-            // $sql = DB::select('select count(*) as total from usuario where tipo=1');
-            // return view('home')->with('sql', $sql);
-            return view('home');
-        } else {
-            session()->invalidate();
-            session()->regenerateToken();
-            return back()->with('mensaje', 'CUENTA ELIMINADA: esta cuenta se ha eliminado, consulte con el administrador');
-        }
+        // Hemos quitado el IF que validaba el estado para que no te rebote más.
+        // Ahora, una vez que el login es correcto, entrarás directo al Home.
+        return view('home');
     }
 }

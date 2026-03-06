@@ -135,6 +135,13 @@
                         </li>
                     </ul>
                 </li>
+
+                <li class="red">
+                    <a href="{{route('usuario.index')}}" class="{{ Request::is('usuario*') ? 'activo' : ''}}">
+                        <img src="{{asset('img-inicio/user.png')}}" class="img-inicio"> <span class="lbl">USUARIOS</span>
+                    </a>
+                </li>
+                
                 <li class="red">
                     <a href="{{route('empresa.index')}}" class="{{ Request::is('empresa*') ? 'activo' : ''}}">
                         <img src="{{asset('img-inicio/info.png')}}" class="img-inicio"> <span class="lbl">ACERCA DE</span>
